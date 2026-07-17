@@ -15,28 +15,40 @@
       "url": "#REPLACE_WITH_GGPARTNERS_TRACKING_LINK",
       "tagline": "The world's biggest poker room",
       "badge": "Up to $600 Welcome Bonus",
-      "cta": "Play Now"
+      "cta": "Play Now",
+      "network": "GGPoker Network",
+      "rating": "4.9",
+      "rakeback": "Up to 60%"
     },
     {
       "name": "PokerStars",
       "url": "#REPLACE_WITH_STARS_AFFILIATE_TRACKING_LINK",
       "tagline": "Home of the Sunday Million",
       "badge": "$30 Free Play",
-      "cta": "Join Now"
+      "cta": "Join Now",
+      "network": "PokerStars",
+      "rating": "4.8",
+      "rakeback": "Rewards program"
     },
     {
       "name": "WPT Global",
       "url": "#REPLACE_WITH_WPT_GLOBAL_TRACKING_LINK",
       "tagline": "Qualify for live WPT events online",
       "badge": "100% Deposit Match",
-      "cta": "Sign Up"
+      "cta": "Sign Up",
+      "network": "Independent",
+      "rating": "4.6",
+      "rakeback": "Missions & rewards"
     },
     {
       "name": "888poker",
       "url": "#REPLACE_WITH_888_AFFILIATE_TRACKING_LINK",
       "tagline": "Soft games, big guarantees",
       "badge": "$88 Free, No Deposit",
-      "cta": "Claim Bonus"
+      "cta": "Claim Bonus",
+      "network": "888 Network",
+      "rating": "4.5",
+      "rakeback": "Club rewards"
     }
   ],
   "sponsor_email": "partners@topreg.it"

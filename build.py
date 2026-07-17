@@ -39,6 +39,62 @@ HENDON_RANKINGS = [
      "Every upcoming festival worldwide, from the WSOP to local series."),
 ]
 
+THM = "https://pokerdb.thehendonmob.com"
+FALLBACK_FESTIVALS = [
+    ("23 Jul - 2 Aug 2026", "England", "GUKPT Goliath by Grosvenor Poker", f"{THM}/festival.php?a=r&n=66587"),
+    ("24 Jul - 4 Aug 2026", "Estonia", "WSOP International Circuit - WSOPC Estonia", f"{THM}/festival.php?a=r&n=68203"),
+    ("31 Jul - 10 Aug 2026", "Slovakia", "WSOP International Circuit - WSOPC Samorin", f"{THM}/festival.php?a=r&n=68811"),
+    ("3 - 9 Aug 2026", "Scotland", "The PartyPoker Tour - Glasgow", f"{THM}/festival.php?a=r&n=68353"),
+    ("7 - 16 Aug 2026", "Cyprus", "Onyx High Roller Series", f"{THM}/festival.php?a=r&n=67215"),
+    ("7 - 16 Aug 2026", "South Korea", "Asian Poker Tour - APT Incheon 2026", f"{THM}/festival.php?a=r&n=65973"),
+    ("18 - 23 Aug 2026", "Liechtenstein", "The Hendon Mob Championship - THMC Liechtenstein", f"{THM}/festival.php?a=r&n=67975"),
+    ("19 - 31 Aug 2026", "Taiwan", "2026 Players Series Championship IV Taipei", f"{THM}/festival.php?a=r&n=70343"),
+    ("31 Aug - 14 Sep 2026", "Australia", "Irish Open International - Sydney", f"{THM}/festival.php?a=r&n=69057"),
+    ("14 - 20 Sep 2026", "Malta", "The Festival in Malta", f"{THM}/festival.php?a=r&n=66717"),
+    ("25 Sep - 7 Oct 2026", "South Korea", "Asian Poker Tour - APT Jeju 2026", f"{THM}/festival.php?a=r&n=65975"),
+]
+
+DATE_RE = re.compile(r"\b(\d{1,2}(?:\s+\w{3,9})?\s*[-–]\s*\d{1,2}\s+\w{3,9}\s+20\d\d)\b")
+FEST_LINK_RE = re.compile(r'href="(https?://pokerdb\.thehendonmob\.com/festival\.php\?a=r&(?:amp;)?n=\d+)"[^>]*>([^<]{6,120})</a>')
+
+
+def fetch_festivals():
+    """Parse upcoming festivals from The Hendon Mob homepage; fall back to a
+    curated list if the page layout changes."""
+    raw = fetch("https://www.thehendonmob.com/")
+    fests = []
+    if raw:
+        html_text = raw.decode("utf-8", "ignore")
+        for row in re.findall(r"<tr[^>]*>(.*?)</tr>", html_text, re.S):
+            dm = DATE_RE.search(row)
+            lm = FEST_LINK_RE.search(row)
+            if not (dm and lm):
+                continue
+            country_m = re.search(r"<td[^>]*>\s*(?:<[^>]+>\s*)*([A-Z][A-Za-z .]{3,25})\s*<", row)
+            country = country_m.group(1).strip() if country_m else ""
+            name = html.unescape(lm.group(2)).strip()
+            if name and not any(name == f[2] for f in fests):
+                fests.append((dm.group(1), country, name, lm.group(1).replace("&amp;", "&")))
+    if len(fests) < 4:
+        print("  [warn] festival parse fallback in use", file=sys.stderr)
+        fests = FALLBACK_FESTIVALS
+    return fests[:12]
+
+
+MONEY_RE = re.compile(r"\$\s?([\d,]{4,})")
+
+
+def find_spotlight(items):
+    """Pick the biggest money score mentioned in recent headlines."""
+    best, best_amt = None, 0
+    for it in items:
+        for m in MONEY_RE.finditer(it["title"]):
+            amt = int(m.group(1).replace(",", ""))
+            if amt > best_amt:
+                best, best_amt = it, amt
+    return best, best_amt
+
+
 DESTINATIONS = [
     {
         "slug": "las-vegas", "name": "Las Vegas, USA", "tags": "WSOP · Wynn Classic · DeepStack",
@@ -228,6 +284,30 @@ def banner(a):
       <div class="bcta">{esc(a["cta"])} &rarr;</div></a>'''
 
 
+def festival_row(date, country, name, url):
+    return f'''<a class="row" href="{esc(url)}" target="_blank" rel="noopener">
+      <span class="rdate">{esc(date)}</span>
+      <span class="rtitle"><strong>{esc(name)}</strong>{" &mdash; " + esc(country) if country else ""}</span></a>'''
+
+
+def compare_row(a):
+    return f'''<tr>
+      <td class="cmp-name"><a href="{esc(a["url"])}" target="_blank" rel="noopener sponsored">{esc(a["name"])}</a><span class="cmp-net">{esc(a.get("network", ""))}</span></td>
+      <td>{esc(a.get("rating", "-"))} &#9733;</td>
+      <td>{esc(a["badge"])}</td>
+      <td>{esc(a.get("rakeback", "-"))}</td>
+      <td><a class="cmp-cta" href="{esc(a["url"])}" target="_blank" rel="noopener sponsored">{esc(a["cta"])}</a></td></tr>'''
+
+
+def spotlight_html(item, amount):
+    if not item:
+        return ""
+    return f'''<a class="spotlight" href="{esc(item["link"])}" target="_blank" rel="noopener nofollow">
+      <span class="spot-label">&#127942; Score of the Day</span>
+      <span class="spot-title">{esc(item["title"])}</span>
+      <span class="spot-amt">${amount:,}</span></a>'''
+
+
 def dest_card(d):
     return f'''<a class="dest" href="play/{d["slug"]}.html"><h3>{esc(d["name"])}</h3><p>{esc(d["blurb"])}</p>
       <span class="dtags">{esc(d["tags"])}</span><span class="dmore">Read the full guide &rarr;</span></a>'''
@@ -257,7 +337,7 @@ def dest_page(d, updated, year):
         .replace("{{YEAR}}", year)
 
 
-def build(config, items):
+def build(config, items, offline=False):
     tourney = [i for i in items if TOURNEY_RE.search(i["title"])][:8]
     tourney_keys = {t["title"] for t in tourney}
     news = [i for i in items if i["title"] not in tourney_keys][:config["max_news"]]
@@ -266,8 +346,13 @@ def build(config, items):
     updated = datetime.now(timezone.utc).strftime("%B %d, %Y %H:%M UTC")
     year = str(datetime.now().year)
     mail = config["sponsor_email"]
+    festivals = FALLBACK_FESTIVALS if offline else fetch_festivals()
+    spot_item, spot_amt = find_spotlight(items)
 
     page = TEMPLATE
+    page = page.replace("{{SPOTLIGHT}}", spotlight_html(spot_item, spot_amt))
+    page = page.replace("{{FESTIVALS}}", "\n".join(festival_row(*f) for f in festivals))
+    page = page.replace("{{COMPARE}}", "\n".join(compare_row(a) for a in config["affiliates"]))
     page = page.replace("{{TAGLINE}}", esc(config["tagline"]))
     page = page.replace("{{UPDATED}}", updated)
     page = page.replace("{{YEAR}}", year)
@@ -335,6 +420,20 @@ a.dest:hover{transform:translateY(-3px);border-color:var(--gold)}
 .dest p{color:var(--mut);font-size:.9rem;line-height:1.55}
 .dtags{display:inline-block;margin-top:12px;font-family:Helvetica,Arial,sans-serif;font-size:.68rem;color:var(--ink);background:#0a2e24;padding:4px 10px;border-radius:20px;letter-spacing:.08em}
 .dmore{display:block;margin-top:12px;font-family:Helvetica,Arial,sans-serif;font-size:.72rem;color:var(--gold);letter-spacing:.1em;text-transform:uppercase}
+.spotlight{display:flex;align-items:center;gap:18px;flex-wrap:wrap;background:linear-gradient(90deg,#2b1f08,#12463a);border:1px solid var(--gold);border-radius:10px;padding:16px 22px;margin-top:22px;transition:.2s}
+.spotlight:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.45)}
+.spot-label{font-family:Helvetica,Arial,sans-serif;font-size:.7rem;letter-spacing:.15em;text-transform:uppercase;color:var(--gold);white-space:nowrap}
+.spot-title{flex:1;font-size:1.02rem;min-width:200px}
+.spot-amt{font-family:Helvetica,Arial,sans-serif;font-weight:700;font-size:1.3rem;color:var(--gold)}
+.cmp{width:100%;border-collapse:collapse;background:var(--card);border:1px solid #1d5a49;border-radius:10px;overflow:hidden;font-size:.9rem}
+.cmp th{font-family:Helvetica,Arial,sans-serif;font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;color:var(--mut);text-align:left;padding:12px 14px;border-bottom:1px solid #1d5a49}
+.cmp td{padding:13px 14px;border-bottom:1px solid #1d5a49;color:var(--ink)}
+.cmp tr:last-child td{border-bottom:none}
+.cmp tr:hover td{background:#175243}
+.cmp-name a{color:var(--gold);font-weight:700}
+.cmp-net{display:block;font-family:Helvetica,Arial,sans-serif;font-size:.68rem;color:var(--mut)}
+.cmp-cta{display:inline-block;background:var(--gold);color:#111;font-family:Helvetica,Arial,sans-serif;font-weight:700;font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;padding:7px 14px;border-radius:5px}
+.cmp-wrap{overflow-x:auto;margin-top:18px}
 .partner{background:linear-gradient(135deg,#1a1204,#2b1f08);border:1px solid var(--gold);border-radius:10px;padding:34px;text-align:center;margin-top:44px}
 .partner h2{border:none;margin:0 0 10px}
 .partner p{color:var(--mut);max-width:600px;margin:0 auto 18px;line-height:1.6}
@@ -367,14 +466,19 @@ TEMPLATE = """<!DOCTYPE html>
 <header><div class="wrap">
   <div class="logo">TOP<span>REG</span></div>
   <div class="tag">{{TAGLINE}}</div>
-  <nav><a href="#news">News</a><a href="#results">Tournament Results</a><a href="#play">Where to Play</a><a href="#rankings">Rankings</a><a href="#rooms">Best Rooms</a><a href="#partner">Advertise</a></nav>
+  <nav><a href="#news">News</a><a href="#results">Tournament Results</a><a href="#calendar">Calendar</a><a href="#play">Where to Play</a><a href="#rankings">Rankings</a><a href="#rooms">Best Rooms</a><a href="#partner">Advertise</a></nav>
   <div class="updated">Auto-updated: {{UPDATED}}</div>
 </div></header>
 
 <div class="wrap">
   <section id="rooms">
     <div class="banners">{{BANNERS}}</div>
-    <div class="ad-note">Advertisement &mdash; TOPREG may earn a commission from partner links. 18+ only. Play responsibly.</div>
+    <div class="cmp-wrap"><table class="cmp">
+      <tr><th>Poker Room</th><th>Rating</th><th>Welcome Bonus</th><th>Rakeback</th><th></th></tr>
+      {{COMPARE}}
+    </table></div>
+    <div class="ad-note">Advertisement &mdash; TOPREG may earn a commission from partner links. 18+ only. Play responsibly. Terms apply on all offers.</div>
+    {{SPOTLIGHT}}
   </section>
 
   <section id="news"><h2>&#9824; Latest Poker News</h2>
@@ -383,6 +487,11 @@ TEMPLATE = """<!DOCTYPE html>
 
   <section id="results"><h2>&#127942; Tournament Results &amp; Winners</h2>
     <div class="rows">{{RESULTS}}</div>
+  </section>
+
+  <section id="calendar"><h2>&#128197; Upcoming Live Festivals</h2>
+    <div class="rows">{{FESTIVALS}}</div>
+    <div class="ad-note" style="text-transform:none">Schedule data refreshed automatically. Full details on The Hendon Mob.</div>
   </section>
 
   <section id="play"><h2>&#9992; Where to Play Live</h2>
@@ -457,4 +566,4 @@ if __name__ == "__main__":
     items = collect(config, offline)
     if not items:
         sys.exit("no items fetched - aborting (keeping previous site)")
-    build(config, items)
+    build(config, items, offline=bool(offline))
