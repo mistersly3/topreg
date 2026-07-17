@@ -1,0 +1,43 @@
+{
+  "site_name": "TOPREG",
+  "tagline": "The Poker Reg's Daily Edge",
+  "domain": "www.topreg.it",
+  "feeds": [
+    "https://www.pokernews.com/rss.php",
+    "https://pokerfuse.com/feed/",
+    "https://www.cardschat.com/news/feed/",
+    "https://www.cardplayer.com/poker-news/rss"
+  ],
+  "max_news": 18,
+  "affiliates": [
+    {
+      "name": "GGPoker",
+      "url": "#REPLACE_WITH_GGPARTNERS_TRACKING_LINK",
+      "tagline": "The world's biggest poker room",
+      "badge": "Up to $600 Welcome Bonus",
+      "cta": "Play Now"
+    },
+    {
+      "name": "PokerStars",
+      "url": "#REPLACE_WITH_STARS_AFFILIATE_TRACKING_LINK",
+      "tagline": "Home of the Sunday Million",
+      "badge": "$30 Free Play",
+      "cta": "Join Now"
+    },
+    {
+      "name": "WPT Global",
+      "url": "#REPLACE_WITH_WPT_GLOBAL_TRACKING_LINK",
+      "tagline": "Qualify for live WPT events online",
+      "badge": "100% Deposit Match",
+      "cta": "Sign Up"
+    },
+    {
+      "name": "888poker",
+      "url": "#REPLACE_WITH_888_AFFILIATE_TRACKING_LINK",
+      "tagline": "Soft games, big guarantees",
+      "badge": "$88 Free, No Deposit",
+      "cta": "Claim Bonus"
+    }
+  ],
+  "sponsor_email": "partners@topreg.it"
+}
