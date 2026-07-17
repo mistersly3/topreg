@@ -258,10 +258,39 @@ def esc(s):
     return html.escape(s, quote=True)
 
 
+def slugify(title):
+    s = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")
+    return s[:70] or "story"
+
+
+STOPWORDS = set("the a an of in on at to for and or with from by is are was were "
+                "this that his her its their as after wins win poker".split())
+
+
+def related_items(item, items, n=4):
+    words = {w for w in re.findall(r"[a-z]{4,}", item["title"].lower())} - STOPWORDS
+    scored = []
+    for other in items:
+        if other is item:
+            continue
+        ow = {w for w in re.findall(r"[a-z]{4,}", other["title"].lower())} - STOPWORDS
+        score = len(words & ow)
+        if score:
+            scored.append((score, other))
+    scored.sort(key=lambda x: -x[0])
+    out = [o for _, o in scored[:n]]
+    for other in items:  # pad with most recent
+        if len(out) >= n:
+            break
+        if other is not item and other not in out:
+            out.append(other)
+    return out
+
+
 def news_card(it):
     img = (f'<img src="{esc(it["img"])}" alt="" loading="lazy">' if it["img"]
            else '<div class="noimg">&#9824;</div>')
-    return f'''<a class="card" href="{esc(it["link"])}" target="_blank" rel="noopener nofollow">
+    return f'''<a class="card" href="news/{it["slug"]}.html">
       <div class="thumb">{img}</div>
       <div class="cbody">
         <span class="meta">{it["date"].strftime("%b %d, %Y")} &middot; {esc(it["source"])}</span>
@@ -271,9 +300,36 @@ def news_card(it):
 
 
 def result_row(it):
-    return f'''<a class="row" href="{esc(it["link"])}" target="_blank" rel="noopener nofollow">
+    return f'''<a class="row" href="news/{it["slug"]}.html">
       <span class="rdate">{it["date"].strftime("%b %d")}</span>
       <span class="rtitle">{esc(it["title"])}</span></a>'''
+
+
+def article_page(it, items, festivals, config, updated, year):
+    img = (f'<img class="art-img" src="{esc(it["img"])}" alt="">' if it["img"] else "")
+    rel = "\n".join(
+        f'''<a class="row" href="{r["slug"]}.html"><span class="rdate">{r["date"].strftime("%b %d")}</span>
+        <span class="rtitle">{esc(r["title"])}</span></a>''' for r in related_items(it, items))
+    fests = "\n".join(
+        f'''<a class="row" href="{esc(u)}" target="_blank" rel="noopener"><span class="rdate">{esc(d)}</span>
+        <span class="rtitle">{esc(n)}</span></a>''' for d, c, n, u in festivals[:5])
+    rooms = "\n".join(
+        f'''<a class="row" href="{esc(a["url"])}" target="_blank" rel="noopener sponsored">
+        <span class="rdate">{esc(a.get("rating", ""))} &#9733;</span>
+        <span class="rtitle"><strong>{esc(a["name"])}</strong> &mdash; {esc(a["badge"])}</span></a>'''
+        for a in config["affiliates"][:3])
+    return ARTICLE_TEMPLATE \
+        .replace("{{TITLE}}", esc(it["title"])) \
+        .replace("{{META}}", f'{it["date"].strftime("%B %d, %Y")} &middot; via {esc(it["source"])}') \
+        .replace("{{IMG}}", img) \
+        .replace("{{EXCERPT}}", esc(it["excerpt"])) \
+        .replace("{{SOURCE_URL}}", esc(it["link"])) \
+        .replace("{{SOURCE}}", esc(it["source"])) \
+        .replace("{{RELATED}}", rel) \
+        .replace("{{FESTIVALS}}", fests) \
+        .replace("{{ROOMS}}", rooms) \
+        .replace("{{UPDATED}}", updated) \
+        .replace("{{YEAR}}", year)
 
 
 def banner(a):
@@ -348,6 +404,15 @@ def build(config, items, offline=False):
     mail = config["sponsor_email"]
     festivals = FALLBACK_FESTIVALS if offline else fetch_festivals()
     spot_item, spot_amt = find_spotlight(items)
+    shown = news + tourney
+    seen_slugs = set()
+    for it in shown:
+        base = slugify(it["title"])
+        slug, i = base, 2
+        while slug in seen_slugs:
+            slug, i = f"{base}-{i}", i + 1
+        seen_slugs.add(slug)
+        it["slug"] = slug
 
     page = TEMPLATE
     page = page.replace("{{SPOTLIGHT}}", spotlight_html(spot_item, spot_amt))
@@ -365,13 +430,18 @@ def build(config, items, offline=False):
 
     SITE.mkdir(exist_ok=True)
     (SITE / "play").mkdir(exist_ok=True)
+    (SITE / "news").mkdir(exist_ok=True)
     (SITE / "index.html").write_text(page, encoding="utf-8")
     for d in DESTINATIONS:
         (SITE / "play" / f"{d['slug']}.html").write_text(
             dest_page(d, updated, year), encoding="utf-8")
+    for it in shown:
+        (SITE / "news" / f"{it['slug']}.html").write_text(
+            article_page(it, shown, festivals, config, updated, year), encoding="utf-8")
     (SITE / "robots.txt").write_text("User-agent: *\nAllow: /\n", encoding="utf-8")
     (SITE / "CNAME").write_text(config["domain"] + "\n", encoding="utf-8")
-    print(f"built site: {len(news)} news, {len(tourney)} results, {len(DESTINATIONS)} destination pages")
+    print(f"built site: {len(news)} news, {len(tourney)} results, "
+          f"{len(shown)} article pages, {len(DESTINATIONS)} destination pages")
 
 
 CSS = """
@@ -438,6 +508,8 @@ a.dest:hover{transform:translateY(-3px);border-color:var(--gold)}
 .partner h2{border:none;margin:0 0 10px}
 .partner p{color:var(--mut);max-width:600px;margin:0 auto 18px;line-height:1.6}
 .pbtn{display:inline-block;background:var(--gold);color:#111;font-family:Helvetica,Arial,sans-serif;font-weight:700;font-size:.8rem;letter-spacing:.12em;text-transform:uppercase;padding:13px 30px;border-radius:6px}
+.art-img{width:100%;max-width:800px;border-radius:10px;border:1px solid #1d5a49;margin-top:22px}
+.src-btn{display:inline-block;margin-top:20px;background:var(--gold);color:#111;font-family:Helvetica,Arial,sans-serif;font-weight:700;font-size:.78rem;letter-spacing:.1em;text-transform:uppercase;padding:12px 26px;border-radius:6px}
 .lede{font-size:1.1rem;line-height:1.7;color:var(--ink);max-width:800px;margin-top:24px}
 .body-text{color:var(--mut);line-height:1.7;max-width:800px;margin-top:12px}
 .back{font-family:Helvetica,Arial,sans-serif;font-size:.75rem;letter-spacing:.12em;text-transform:uppercase;color:var(--gold)}
@@ -552,6 +624,51 @@ DEST_TEMPLATE = """<!DOCTYPE html>
 
   <section><h2>Results &amp; Schedules</h2>
     <div class="rows">{{LINKS}}</div>
+  </section>
+</div>
+""" + FOOTER + """
+</body>
+</html>
+"""
+
+
+ARTICLE_TEMPLATE = """<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{TITLE}} | TOPREG</title>
+<meta name="description" content="{{EXCERPT}}">
+<style>""" + CSS + """</style>
+</head>
+<body>
+<header><div class="wrap">
+  <div class="logo"><a href="../index.html">TOP<span>REG</span></a></div>
+  <div class="tag">Poker News</div>
+  <nav><a href="../index.html" class="back">&larr; Back to TOPREG</a><a href="../index.html#news">More News</a><a href="../index.html#calendar">Calendar</a><a href="../index.html#rooms">Best Rooms</a></nav>
+  <div class="updated">Auto-updated: {{UPDATED}}</div>
+</div></header>
+
+<div class="wrap">
+  <section>
+    <h2>{{TITLE}}</h2>
+    <span class="meta">{{META}}</span>
+    {{IMG}}
+    <p class="lede">{{EXCERPT}}</p>
+    <a class="src-btn" href="{{SOURCE_URL}}" target="_blank" rel="noopener nofollow">Continue reading at {{SOURCE}} &rarr;</a>
+  </section>
+
+  <section><h2>&#9824; Related Coverage</h2>
+    <div class="rows">{{RELATED}}</div>
+  </section>
+
+  <section><h2>&#128197; Upcoming Festivals</h2>
+    <div class="rows">{{FESTIVALS}}</div>
+  </section>
+
+  <section><h2>&#9733; Where Our Readers Play</h2>
+    <div class="rows">{{ROOMS}}</div>
+    <div class="ad-note">Advertisement &mdash; TOPREG may earn a commission from partner links. 18+ only. Play responsibly.</div>
   </section>
 </div>
 """ + FOOTER + """
