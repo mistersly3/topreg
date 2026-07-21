@@ -51,5 +51,32 @@
       "rakeback": "Club rewards"
     }
   ],
-  "sponsor_email": "partners@topreg.it"
+  "sponsor_email": "partners@topreg.it",
+  "amazon_tag": "topreg00-20",
+  "study": [
+    {
+      "name": "Poker Academy",
+      "url": "https://poker.academy",
+      "tagline": "Structured training with a modern GTO curriculum",
+      "badge": "Free trial available"
+    },
+    {
+      "name": "GTO Wizard",
+      "url": "https://gtowizard.com",
+      "tagline": "The solver-powered study app used by the pros - WSOP official training partner",
+      "badge": "Free tier"
+    },
+    {
+      "name": "Upswing Poker",
+      "url": "https://upswingpoker.com",
+      "tagline": "Courses by Doug Polk, Ryan Fee and top pros",
+      "badge": "The Poker Lab"
+    },
+    {
+      "name": "PokerCoaching.com",
+      "url": "https://pokercoaching.com",
+      "tagline": "Jonathan Little's interactive quizzes and challenges",
+      "badge": "Daily quizzes"
+    }
+  ]
 }

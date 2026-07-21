@@ -340,6 +340,33 @@ def banner(a):
       <div class="bcta">{esc(a["cta"])} &rarr;</div></a>'''
 
 
+SHOP_ITEMS = [
+    ("Modern Poker Theory", "book", "Michael Acevedo's GTO bible - the most recommended study book of the last decade.", "Modern Poker Theory Acevedo"),
+    ("The Theory of Poker", "book", "Sklansky's classic on the fundamentals every player should know.", "The Theory of Poker Sklansky"),
+    ("Mastering Small Stakes NLHE", "book", "Jonathan Little's roadmap for beating the games most people actually play.", "Mastering Small Stakes No-Limit Hold'em Jonathan Little"),
+    ("Harrington on Hold'em", "book", "The tournament trilogy that shaped a generation of MTT players.", "Harrington on Hold'em"),
+    ("Copag 100% Plastic Cards", "gear", "The cards used in card rooms worldwide - washable and nearly indestructible.", "Copag plastic playing cards bridge"),
+    ("Clay Poker Chip Set (300pc)", "gear", "A proper weighted set that turns any kitchen table into a card room.", "clay poker chip set 300"),
+    ("Folding Poker Table Top", "gear", "Full-size felt, cup holders, folds away after the game.", "folding poker table top 8 players"),
+    ("Automatic Card Shuffler", "gear", "Keeps the home game moving between hands.", "automatic card shuffler 2 deck"),
+]
+
+
+def shop_card(name, kind, blurb, query, tag):
+    url = f"https://www.amazon.com/s?k={query.replace(' ', '+')}&tag={tag}"
+    icon = "&#128218;" if kind == "book" else "&#127183;"
+    return f'''<a class="dest" href="{esc(url)}" target="_blank" rel="noopener sponsored"><h3>{icon} {esc(name)}</h3><p>{esc(blurb)}</p>
+      <span class="dmore">View on Amazon &rarr;</span></a>'''
+
+
+def study_card(s):
+    return f'''<a class="banner" href="{esc(s["url"])}" target="_blank" rel="noopener sponsored">
+      <div class="bname">{esc(s["name"])}</div>
+      <div class="btag">{esc(s["tagline"])}</div>
+      <div class="bbadge">{esc(s["badge"])}</div>
+      <div class="bcta">Start Learning &rarr;</div></a>'''
+
+
 def festival_row(date, country, name, url):
     return f'''<a class="row" href="{esc(url)}" target="_blank" rel="noopener">
       <span class="rdate">{esc(date)}</span>
@@ -418,6 +445,9 @@ def build(config, items, offline=False):
     page = page.replace("{{SPOTLIGHT}}", spotlight_html(spot_item, spot_amt))
     page = page.replace("{{FESTIVALS}}", "\n".join(festival_row(*f) for f in festivals))
     page = page.replace("{{COMPARE}}", "\n".join(compare_row(a) for a in config["affiliates"]))
+    page = page.replace("{{STUDY}}", "\n".join(study_card(s) for s in config.get("study", [])))
+    page = page.replace("{{SHOP}}", "\n".join(
+        shop_card(*item, config.get("amazon_tag", "")) for item in SHOP_ITEMS))
     page = page.replace("{{TAGLINE}}", esc(config["tagline"]))
     page = page.replace("{{UPDATED}}", updated)
     page = page.replace("{{YEAR}}", year)
@@ -520,7 +550,7 @@ footer strong{color:var(--ink)}
 
 FOOTER = """<footer><div class="wrap">
   <p><span class="age">18+</span><strong>Play responsibly.</strong> Gambling can be addictive. If you or someone you know has a gambling problem, seek help: <a href="https://www.begambleaware.org" rel="noopener">BeGambleAware.org</a>.</p>
-  <p style="margin-top:12px"><strong>Affiliate disclosure:</strong> TOPREG contains affiliate links and advertising. We may receive compensation when you click links or sign up through this site. This does not affect our editorial content, which links to and credits original sources.</p>
+  <p style="margin-top:12px"><strong>Affiliate disclosure:</strong> TOPREG contains affiliate links and advertising. We may receive compensation when you click links or sign up through this site. This does not affect our editorial content, which links to and credits original sources. As an Amazon Associate, TOPREG earns from qualifying purchases.</p>
   <p style="margin-top:12px">This website is intended exclusively for visitors located in jurisdictions where online poker and related advertising are legal. It is <strong>not directed at residents of Italy</strong> or any jurisdiction where gambling advertising is prohibited. Nothing on this site constitutes an invitation to gamble where unlawful. News headlines and excerpts are aggregated from and credited to their original publishers. Rankings data courtesy of <a href="https://www.thehendonmob.com" rel="noopener">The Hendon Mob</a>.</p>
   <p style="margin-top:12px">&copy; {{YEAR}} TOPREG.it &mdash; All rights reserved.</p>
 </div></footer>"""
@@ -538,7 +568,7 @@ TEMPLATE = """<!DOCTYPE html>
 <header><div class="wrap">
   <div class="logo">TOP<span>REG</span></div>
   <div class="tag">{{TAGLINE}}</div>
-  <nav><a href="#news">News</a><a href="#results">Tournament Results</a><a href="#calendar">Calendar</a><a href="#play">Where to Play</a><a href="#rankings">Rankings</a><a href="#rooms">Best Rooms</a><a href="#partner">Advertise</a></nav>
+  <nav><a href="#news">News</a><a href="#results">Tournament Results</a><a href="#calendar">Calendar</a><a href="#play">Where to Play</a><a href="#rankings">Rankings</a><a href="#rooms">Best Rooms</a><a href="#study">Study Corner</a><a href="#shop">Poker Shelf</a><a href="#partner">Advertise</a></nav>
   <div class="updated">Auto-updated: {{UPDATED}}</div>
 </div></header>
 
@@ -573,6 +603,16 @@ TEMPLATE = """<!DOCTYPE html>
   <section id="rankings"><h2>&#9819; Player Rankings</h2>
     <div class="rows">{{RANKINGS}}</div>
     <div class="ad-note" style="text-transform:none">Rankings hosted by The Hendon Mob, the largest live poker database.</div>
+  </section>
+
+  <section id="study"><h2>&#127891; Study Corner</h2>
+    <div class="banners">{{STUDY}}</div>
+    <div class="ad-note">Some links may be affiliate links. TOPREG may earn a commission at no cost to you.</div>
+  </section>
+
+  <section id="shop"><h2>&#128218; The Poker Shelf &mdash; Books &amp; Gear</h2>
+    <div class="dests">{{SHOP}}</div>
+    <div class="ad-note" style="text-transform:none">As an Amazon Associate, TOPREG earns from qualifying purchases.</div>
   </section>
 
   <section class="partner" id="partner">
