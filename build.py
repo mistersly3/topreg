@@ -420,6 +420,15 @@ def dest_page(d, updated, year):
         .replace("{{YEAR}}", year)
 
 
+def finalize(page, config):
+    """Inject analytics tag and consent banner into a rendered page."""
+    ga_id = config.get("ga_id")
+    if not ga_id:
+        return page
+    ga = GA_HEAD.replace("{{GA_ID}}", ga_id)
+    return page.replace("</head>", ga + "</head>").replace("</body>", CONSENT_BANNER + "</body>")
+
+
 def build(config, items, offline=False):
     tourney = [i for i in items if TOURNEY_RE.search(i["title"])][:8]
     tourney_keys = {t["title"] for t in tourney}
@@ -461,13 +470,13 @@ def build(config, items, offline=False):
     SITE.mkdir(exist_ok=True)
     (SITE / "play").mkdir(exist_ok=True)
     (SITE / "news").mkdir(exist_ok=True)
-    (SITE / "index.html").write_text(page, encoding="utf-8")
+    (SITE / "index.html").write_text(finalize(page, config), encoding="utf-8")
     for d in DESTINATIONS:
         (SITE / "play" / f"{d['slug']}.html").write_text(
-            dest_page(d, updated, year), encoding="utf-8")
+            finalize(dest_page(d, updated, year), config), encoding="utf-8")
     for it in shown:
         (SITE / "news" / f"{it['slug']}.html").write_text(
-            article_page(it, shown, festivals, config, updated, year), encoding="utf-8")
+            finalize(article_page(it, shown, festivals, config, updated, year), config), encoding="utf-8")
     (SITE / "robots.txt").write_text("User-agent: *\nAllow: /\n", encoding="utf-8")
     (SITE / "CNAME").write_text(config["domain"] + "\n", encoding="utf-8")
     print(f"built site: {len(news)} news, {len(tourney)} results, "
@@ -546,6 +555,38 @@ a.dest:hover{transform:translateY(-3px);border-color:var(--gold)}
 footer{margin-top:60px;border-top:1px solid #1d5a49;padding:30px 0 40px;font-family:Helvetica,Arial,sans-serif;font-size:.72rem;color:var(--mut);line-height:1.7}
 footer strong{color:var(--ink)}
 .age{display:inline-block;border:2px solid var(--red);color:var(--red);border-radius:50%;width:38px;height:38px;line-height:34px;text-align:center;font-weight:700;margin-right:10px;font-size:.85rem}
+"""
+
+GA_HEAD = """
+<script>
+window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('consent', 'default', {analytics_storage: 'denied', ad_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied'});
+gtag('js', new Date());
+gtag('config', '{{GA_ID}}', {anonymize_ip: true});
+if (localStorage.getItem('topreg_consent') === 'granted') {
+  gtag('consent', 'update', {analytics_storage: 'granted'});
+}
+</script>
+<script async src="https://www.googletagmanager.com/gtag/js?id={{GA_ID}}"></script>
+"""
+
+CONSENT_BANNER = """
+<div id="consent-bar" style="display:none;position:fixed;bottom:0;left:0;right:0;background:#071f18;border-top:1px solid #d4af37;padding:14px 20px;z-index:999;font-family:Helvetica,Arial,sans-serif;font-size:.78rem;color:#9aa89f;text-align:center">
+  We use cookies for anonymous traffic statistics only.
+  <button onclick="topregConsent(true)" style="margin-left:12px;background:#d4af37;color:#111;border:none;padding:7px 16px;border-radius:5px;font-weight:700;cursor:pointer">Accept</button>
+  <button onclick="topregConsent(false)" style="margin-left:8px;background:none;color:#9aa89f;border:1px solid #9aa89f;padding:6px 14px;border-radius:5px;cursor:pointer">Decline</button>
+</div>
+<script>
+function topregConsent(ok) {
+  localStorage.setItem('topreg_consent', ok ? 'granted' : 'denied');
+  if (ok) { gtag('consent', 'update', {analytics_storage: 'granted'}); }
+  document.getElementById('consent-bar').style.display = 'none';
+}
+if (!localStorage.getItem('topreg_consent')) {
+  document.getElementById('consent-bar').style.display = 'block';
+}
+</script>
 """
 
 FOOTER = """<footer><div class="wrap">
