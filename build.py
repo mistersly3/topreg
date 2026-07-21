@@ -477,7 +477,15 @@ def build(config, items, offline=False):
     for it in shown:
         (SITE / "news" / f"{it['slug']}.html").write_text(
             finalize(article_page(it, shown, festivals, config, updated, year), config), encoding="utf-8")
-    (SITE / "robots.txt").write_text("User-agent: *\nAllow: /\n", encoding="utf-8")
+    base = f"https://{config['domain']}"
+    urls = [f"{base}/"] + [f"{base}/play/{d['slug']}.html" for d in DESTINATIONS] + \
+           [f"{base}/news/{it['slug']}.html" for it in shown]
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    sitemap = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' + \
+        "\n".join(f"  <url><loc>{esc(u)}</loc><lastmod>{today}</lastmod></url>" for u in urls) + "\n</urlset>\n"
+    (SITE / "sitemap.xml").write_text(sitemap, encoding="utf-8")
+    (SITE / "robots.txt").write_text(
+        f"User-agent: *\nAllow: /\nSitemap: {base}/sitemap.xml\n", encoding="utf-8")
     (SITE / "CNAME").write_text(config["domain"] + "\n", encoding="utf-8")
     print(f"built site: {len(news)} news, {len(tourney)} results, "
           f"{len(shown)} article pages, {len(DESTINATIONS)} destination pages")
