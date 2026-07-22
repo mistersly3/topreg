@@ -56,6 +56,12 @@
   "ga_id": "G-PCYZ8794BJ",
   "study": [
     {
+      "name": "PLO Genius",
+      "url": "https://plogenius.com/?ref=topreg",
+      "tagline": "Deepsolver's PLO training platform - study Pot Limit Omaha the solver way",
+      "badge": "20% off with code TOPREG"
+    },
+    {
       "name": "Poker Academy",
       "url": "https://poker.academy",
       "tagline": "Structured training with a modern GTO curriculum",
